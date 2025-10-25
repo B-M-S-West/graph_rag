@@ -107,5 +107,33 @@ def extract_graph_components(raw_data):
                 "target": nodes[target_node],
                 "relationship": relationship
             })
-            
+
     return nodes, relationships
+
+def ingest_to_neo4j(nodes, relationships):
+    """
+    Ingest nodes and relationships into Neo4j database.
+    """
+
+    with neo4j_driver.session() as session:
+        # Create nodes in Neo4j
+        for name, node_id in nodes.items():
+            session.run(
+                "CREATE (n:Entity {id: $id, name: $name})",
+                id=node_id,
+                name=name
+            )
+        # Create relationships in Neo4j
+        for relationship in relationships:
+            session.run(
+                """
+                MATCH (a:Entity {id: $source_id}), (b:Entity {id: $target_id})
+                CREATE (a)-[:RELATIONSHIP {type: $relationship}]->(b)
+                """,
+                source_id=relationship["source"],
+                target_id=relationship["target"],
+                relationship=relationship["relationship"]
+            )
+
+    return nodes
+
