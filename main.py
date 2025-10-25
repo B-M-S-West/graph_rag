@@ -137,3 +137,25 @@ def ingest_to_neo4j(nodes, relationships):
 
     return nodes
 
+def create_collection(client, collection_name, vector_dimension):
+    """
+    Create a Qdrant collection if it doesn't exist.
+    """
+    try:
+        collection_info = client.get_collection(collection_name=collection_name)
+        print(f"Collection '{collection_name}' already exists.")
+    except Exception as e:
+        if 'Not found: Collection' in str(e):
+            print(f"Collection '{collection_name}' does not exist. Creating new collection.")
+
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=models.VectorParams(
+                    size=vector_dimension,
+                    distance=models.Distance.COSINE
+                )
+            )
+
+            print(f"Collection '{collection_name}' created successfully.")
+        else:
+            print(f"An error occurred: {e}")
