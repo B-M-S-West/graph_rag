@@ -1,4 +1,5 @@
 from email.mime import base
+import re
 from neo4j import GraphDatabase
 from qdrant_client import QdrantClient, models
 from dotenv import load_dotenv
@@ -77,3 +78,34 @@ def openai_llm_parser(prompt):
     )
 
     return GraphComponents.model_validate(completion.choices[0].message.content)
+
+def extract_graph_components(raw_data):
+    prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
+
+    parsed_response = openai_llm_parser(prompt) # Should return a list of dictionaries
+    parsed_response = parsed_response.graph # Should be the 'graph' structure is a key in the parsed response
+
+    nodes = {}
+    relationships = []
+
+    for entry in parsed_response:
+        node = entry.node
+        target_node = entry.target_node # Get target node if available
+        relationship = entry.relationship # Get relationship if available
+
+        # Add nodes to the dictionary with a uniquie ID
+        if node not in nodes:
+            nodes[node] = str(uuid.uuid4())
+
+        if target_node and target_node not in nodes:
+            nodes[target_node] = str(uuid.uuid4())
+
+        # Add relationship to the relationships list with node IDs
+        if target_node and relationship:
+            relationships.append({
+                "source": nodes[node],
+                "target": nodes[target_node],
+                "relationship": relationship
+            })
+            
+    return nodes, relationships
