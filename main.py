@@ -185,3 +185,15 @@ def ingest_to_qdrant(collection_name, raw_data, node_id_mapping):
             for node_id, embedding in zip(node_id_mapping.values(), embeddings)
         ]
     )
+
+def retriever_search(neo4j_driver, qdrant_client, collection_name, query):
+    retriever = QdrantNeo4jRetriever(
+        driver=neo4j_driver,
+        client=qdrant_client,
+        collection_name=collection_name,
+        id_property_external="id",
+        id_property_neo4j="id"
+    )
+
+    results = retriever.search(query_vector=openai_embeddings(query), top_k=5)
+    return results
