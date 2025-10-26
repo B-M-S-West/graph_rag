@@ -168,3 +168,20 @@ def openai_embeddings(texts):
     
     return response.data[0].embedding
 
+def ingest_to_qdrant(collection_name, raw_data, node_id_mapping):
+    """
+    Ingest data into Qdrant collection.
+    """
+    embeddings = [openai_embeddings(paragraph) for paragraph in raw_data.split("\n")]
+
+    qdrant_client.upsert(
+        collection_name=collection_name,
+        points=[
+            {
+                "id": str(uuid.uuid4()),
+                "vector": embedding,
+                "payload": {"id": node_id}
+            }
+            for node_id, embedding in zip(node_id_mapping.values(), embeddings)
+        ]
+    )
