@@ -159,3 +159,12 @@ def create_collection(client, collection_name, vector_dimension):
             print(f"Collection '{collection_name}' created successfully.")
         else:
             print(f"An error occurred: {e}")
+
+def openai_embeddings(texts):
+    response = client.embeddings.create(
+        model="nomic-embed-text:latest", 
+        input=texts
+    )
+    
+    return response.data[0].embedding
+
