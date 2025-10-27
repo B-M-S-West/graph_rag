@@ -197,3 +197,30 @@ def retriever_search(neo4j_driver, qdrant_client, collection_name, query):
 
     results = retriever.search(query_vector=openai_embeddings(query), top_k=5)
     return results
+
+def fetch_related_graph(neo4j_client, entity_ids):
+    query = """
+    MATCH (e:Entity)-[r1]-(n1)-[r2]-(n2)
+    WHERE e.id IN $entity_ids
+    RETURN e, r1 as r, n1 as related, r2, n2
+    UNION
+    MATCH (e:Entity)-[r]-(related)
+    WHERE e.id IN $entity_ids
+    RETURN e, r, related, null as r2, null as n2
+    """
+    with neo4j_client.session() as session:
+        result = session.run(query, entity_ids=entity_ids)
+        subgraph = []
+        for record in result:
+            subgraph.append({
+                "entity": record["e"],
+                "relationship": record["r"],
+                "related_node": record["related"],
+            })
+            if record["r2"] and record["n2"]:
+                subgraph.append({
+                    "entity": record["related"],
+                    "relationship": record["r2"],
+                    "related_node": record["n2"],
+                })
+    return subgraph
