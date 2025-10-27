@@ -224,3 +224,19 @@ def fetch_related_graph(neo4j_client, entity_ids):
                     "related_node": record["n2"],
                 })
     return subgraph
+
+def format_graph_context(subgraph):
+    nodes = set()
+    edges = []
+
+    for entry in subgraph:
+        entity = entry["entity"]
+        related = entry["related_node"]
+        relationship = entry["relationship"]
+
+        nodes.add(entity["name"])
+        nodes.add(related["name"])
+
+        edges.append(f"{entity['name']} -[{relationship['type']}]-> {related['name']}")
+
+    return {"nodes": list(nodes), "edges": edges}
