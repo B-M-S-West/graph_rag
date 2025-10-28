@@ -1,4 +1,6 @@
 from email.mime import base
+from operator import ne
+from platform import node
 import re
 from neo4j import GraphDatabase
 from qdrant_client import QdrantClient, models
@@ -274,4 +276,92 @@ def graphRAG_run(graph_context, user_query):
     
     except Exception as e:
         return f"Error querying LLM: {str(e)}"
+    
+if __name__ == "__main__":
+    print("Script started")
+    print("Loading environment variables...")
+    load_dotenv('.env')
+    print("Environment variables loaded.")
+
+    print("Initializing clients...")
+    neo4j_driver = GraphDatabase.driver(
+        neo4j_url,
+        auth=(neo4j_user, neo4j_password)   
+    )
+    qdrant_client = QdrantClient(
+        url=qdrant_url
+    )
+    print("Clients initialized.")
+
+    print("Creating collection...")
+    collection_name = "graphRAGstoreds"
+    vector_dimension = 1536
+    create_collection(qdrant_client, collection_name, vector_dimension)
+    print("Collection created/verified.")
+
+    print("Extracting graph components...")
+
+    raw_data = """Alice is a data scientist at TechCorp's Seattle office.
+    Bob and Carol collaborate on the Alpha project.
+    Carol transferred to the New York office last year.
+    Dave mentors both Alice and Bob.
+    TechCorp's headquarters is in Seattle.
+    Carol leads the East Coast team.
+    Dave started his career in Seattle.
+    The Alpha project is managed from New York.
+    Alice previously worked with Carol at DataCo.
+    Bob joined the team after Dave's recommendation.
+    Eve runs the West Coast operations from Seattle.
+    Frank works with Carol on client relations.
+    The New York office expanded under Carol's leadership.
+    Dave's team spans multiple locations.
+    Alice visits Seattle monthly for team meetings.
+    Bob's expertise is crucial for the Alpha project.
+    Carol implemented new processes in New York.
+    Eve and Dave collaborated on previous projects.
+    Frank reports to the New York office.
+    TechCorp's main AI research is in Seattle.
+    The Alpha project revolutionized East Coast operations.
+    Dave oversees projects in both offices.
+    Bob's contributions are mainly remote.
+    Carol's team grew significantly after moving to New York.
+    Seattle remains the technology hub for TechCorp."""
+
+    nodes, relationships = extract_graph_components(raw_data)
+    print(f"Extracted {len(nodes)} nodes and {len(relationships)} relationships.")
+
+    print("Nodes:", nodes)
+    print("Relationships:", relationships)
+
+    print("Ingesting data into Neo4j...")
+    node_id_mapping = ingest_to_neo4j(nodes, relationships)
+    print("Data ingested into Neo4j.")
+
+    print("Ingesting data into Qdrant...")
+    ingest_to_qdrant(collection_name, raw_data, node_id_mapping)
+    print("Data ingested into Qdrant.")
+
+    query = "How is Bob connected to New York?"
+    print("Starting retriever search...")
+    retriever_result = retriever_search(neo4j_driver, qdrant_client, collection_name, query)
+    print("Retriever results:", retriever_result)
+
+    print("Extracting entity IDs...")
+    entity_ids = [
+        item.content.split("'id': '")[1].split("'")[0]
+        for item in retriever_result.items
+    ]
+    print("Entity IDs:", entity_ids)
+
+    print("Fetching related graph...")
+    subgraph = fetch_related_graph(neo4j_driver, entity_ids)
+    print("Subgraph:", subgraph)
+
+    print("Formatting graph context...")
+    graph_context = format_graph_context(subgraph)
+    print("Graph context:", graph_context)
+
+    print("Running GraphRAG...")
+    answer = graphRAG_run(graph_context, query)
+    print("Final Answer:", answer)
     
