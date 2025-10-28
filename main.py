@@ -240,3 +240,38 @@ def format_graph_context(subgraph):
         edges.append(f"{entity['name']} -[{relationship['type']}]-> {related['name']}")
 
     return {"nodes": list(nodes), "edges": edges}
+
+def graphRAG_run(graph_context, user_query):
+    nodes_str = ", ".join(graph_context["nodes"])
+    edges_str = "; ".join(graph_context["edges"])
+    prompt = f"""
+    You are an intelligent assistant with access to the following knowledge graph:
+    
+    Nodes: {nodes_str}
+
+    Edges: {edges_str}
+
+    Using this graph, Answer the following question:
+
+    User Query: "{user_query}"
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="gemma3:1b-it-qat",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Provide the answer for the following question:"
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+        return response.choices[0].message
+    
+    except Exception as e:
+        return f"Error querying LLM: {str(e)}"
+    
