@@ -1,7 +1,5 @@
-from email.mime import base
-from operator import ne
-from platform import node
 import re
+import json
 from neo4j import GraphDatabase
 from qdrant_client import QdrantClient, models
 from dotenv import load_dotenv
@@ -79,7 +77,7 @@ def openai_llm_parser(prompt):
         ]
     )
 
-    return GraphComponents.model_validate(completion.choices[0].message.content)
+    return GraphComponents.model_validate_json(completion.choices[0].message.content)
 
 def extract_graph_components(raw_data):
     prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
@@ -295,7 +293,7 @@ if __name__ == "__main__":
 
     print("Creating collection...")
     collection_name = "graphRAGstoreds"
-    vector_dimension = 1536
+    vector_dimension = 768 # 768 for nomic-embed-text
     create_collection(qdrant_client, collection_name, vector_dimension)
     print("Collection created/verified.")
 
