@@ -1,6 +1,10 @@
 # app.py
 import streamlit as st
 from backend import GraphRAGEngine
+from loguru import logger
+
+# Global Logger Configuration
+logger.add("graphrag_app.log", rotation="1 MB", level="INFO")
 
 # Page Configuration
 st.set_page_config(page_title="GraphRAG Explorer", layout="wide")
@@ -9,14 +13,15 @@ st.set_page_config(page_title="GraphRAG Explorer", layout="wide")
 @st.cache_resource
 def get_engine():
     # Cached to prevent reloading connections on every interaction
-    return GraphRAGEngine()
+    logger.info("Initializing GraphRAGEngine instance...")
+    try:
+        engine = GraphRAGEngine()
+    except Exception as e:
+        logger.error(f"Error initializing GraphRAGEngine: {e}")
+        raise
+    logger.info("GraphRAGEngine instance created successfully.")
+    return engine
 
-
-try:
-    engine = get_engine()
-except Exception as e:
-    st.error(f"Failed to connect to backend: {e}")
-    st.stop()
 
 st.title("🕸️ GraphRAG Explorer")
 st.markdown("Interact with your Neo4j + Qdrant Knowledge Graph.")
@@ -33,13 +38,17 @@ with st.sidebar:
     if st.button("Ingest Data"):
         if not raw_text.strip():
             st.warning("Please enter some text.")
+            logger.warning("Ingestion attempt blocked: empty text input.")
         else:
+            logger.info(f"User requested ingestion of text (length: {len(raw_text)} characters).")
             with st.spinner("Extracting Entities & Relationships..."):
                 try:
                     result_msg = engine.ingest_text(raw_text)
                     st.success(result_msg)
+                    logger.success("Data ingestion completed successfully.")
                 except Exception as e:
-                    st.error(f"Error during ingestion: {e}")
+                    st.error("Ingestion failed. Check graphrag_app.log for details.")
+                    logger.error(f"Ingestion failed in Streamlit UI layer")
 
 # --- Main Area: Chat Interface ---
 st.subheader("💬 Chat with your Graph")
@@ -63,19 +72,24 @@ if prompt := st.chat_input("Ask a question about the ingested data..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    logger.info(f"User submitted query: {prompt}")
+
     # 2. Generate & Display Assistant Response
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                answer, context = engine.query(prompt)
+                answer, context = engine.query_graph(prompt)
                 st.markdown(answer)
                 with st.expander("View Graph Context Used"):
                     st.code(context)
+
+                logger.success("Generated response successfully.")
 
                 # Save to history
                 st.session_state.messages.append(
                     {"role": "assistant", "content": answer, "context": context}
                 )
-            except Exception as e:
-                st.error(f"Error generating response: {e}")
+            except Exception:
+                st.error("Query failed. Check graphrag_app.log for details.")
+                logger.error("Query failed in Streamlit UI layer.")
 
