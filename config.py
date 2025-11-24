@@ -8,7 +8,7 @@ class Config:
     SERVER_HOST = os.getenv('SERVER_HOST', 'localhost')
 
     # Neo4j Configuration
-    NEO4J_URI = f"http://{SERVER_HOST}:{os.getenv('NEO4J_PORT', '7687')}"
+    NEO4J_URI = f"bolt://{SERVER_HOST}:{os.getenv('NEO4J_PORT', '7687')}"
     NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
     NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'password')
 
