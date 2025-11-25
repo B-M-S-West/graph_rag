@@ -153,17 +153,18 @@ class GraphRAGEngine:
 
             # Step 3: Qdrant Ingestion
             logger.info("Step 3: Ingesting vectors into Qdrant...")
-            # Split text by newlines for embedding chunks
-            text_chunks = [p for p in raw_text.split('\n') if p.strip()]
-            for chunk in text_chunks:
-            embedding = self.get_embeddings(chunk)
-            points = [
-                models.PointStruct(
-                    id=str(uuid.uuid4()),
-                    vector=embedding,
-                    payload={"id": node_id}
-                ) for node_id in nodes.values()
-            ]
+
+            points = []
+            # Iterate over the extracted Neo4j nodes (name: id mapping)
+            for name, node_id in nodes.items():
+                embedding = self.get_embeddings(name)
+                points.append(
+                    models.PointStruct(
+                        id=str(uuid.uuid4()),
+                        vector=embedding,
+                        payload={"id": node_id}
+                    )
+                )
             self.qdrant_client.upsert(
                 collection_name=Config.COLLECTION_NAME,
                 points=points
