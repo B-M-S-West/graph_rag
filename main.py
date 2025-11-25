@@ -1,11 +1,8 @@
-import re
-import json
 from neo4j import GraphDatabase
 from qdrant_client import QdrantClient, models
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from openai import OpenAI
-from collections import defaultdict
 from neo4j_graphrag.retrievers import QdrantNeo4jRetriever
 import uuid
 import os
@@ -23,32 +20,27 @@ neo4j_user = os.getenv("NEO4J_USER")
 neo4j_password = os.getenv("NEO4J_PASSWORD")
 
 qdrant_url = f"http://{server_host}:{qdrant_port}"
-neo4j_url = f"http://{server_host}:{neo4j_port}"
+neo4j_url = f"bolt://{server_host}:{neo4j_port}"
 
 # Using Ollama for locally run models
-client = OpenAI(
-    base_url=f"http://{server_host}:11434/v1",
-    api_key="ollama"
-)
+client = OpenAI(base_url=f"http://{server_host}:11434/v1", api_key="ollama")
 
 # Initialize Neo4j driver
-neo4j_driver = GraphDatabase.driver(
-    neo4j_url,
-    auth=(neo4j_user, neo4j_password)   
-)
+neo4j_driver = GraphDatabase.driver(neo4j_url, auth=(neo4j_user, neo4j_password))
 
 # Initialize Qdrant client
-qdrant_client = QdrantClient(
-    url=qdrant_url
-)
+qdrant_client = QdrantClient(url=qdrant_url)
+
 
 class single(BaseModel):
     node: str
     target_node: str
     relationship: str
 
+
 class GraphComponents(BaseModel):
     graph: list[single]
+
 
 def openai_llm_parser(prompt):
     completion = client.chat.completions.create(
@@ -57,8 +49,7 @@ def openai_llm_parser(prompt):
         messages=[
             {
                 "role": "system",
-                "content": 
-                """You are a precision graph relationship extractor. Extract all relationships from the text and format them as a JSON object object with this exact structure:
+                "content": """You are a precision graph relationship extractor. Extract all relationships from the text and format them as a JSON object object with this exact structure:
                 {
                     "graph": [
                         {"node": "Person/Entity",
@@ -68,30 +59,30 @@ def openai_llm_parser(prompt):
                     ]
                 }
                 Include ALL relationships mentioned in the text, including implicit ones. Be thorough and precise.
-                """
+                """,
             },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
+            {"role": "user", "content": prompt},
+        ],
     )
 
     return GraphComponents.model_validate_json(completion.choices[0].message.content)
 
+
 def extract_graph_components(raw_data):
     prompt = f"Extract nodes and relationships from the following text:\n{raw_data}"
 
-    parsed_response = openai_llm_parser(prompt) # Should return a list of dictionaries
-    parsed_response = parsed_response.graph # Should be the 'graph' structure is a key in the parsed response
+    parsed_response = openai_llm_parser(prompt)  # Should return a list of dictionaries
+    parsed_response = (
+        parsed_response.graph
+    )  # Should be the 'graph' structure is a key in the parsed response
 
     nodes = {}
     relationships = []
 
     for entry in parsed_response:
         node = entry.node
-        target_node = entry.target_node # Get target node if available
-        relationship = entry.relationship # Get relationship if available
+        target_node = entry.target_node  # Get target node if available
+        relationship = entry.relationship  # Get relationship if available
 
         # Add nodes to the dictionary with a uniquie ID
         if node not in nodes:
@@ -102,13 +93,16 @@ def extract_graph_components(raw_data):
 
         # Add relationship to the relationships list with node IDs
         if target_node and relationship:
-            relationships.append({
-                "source": nodes[node],
-                "target": nodes[target_node],
-                "relationship": relationship
-            })
+            relationships.append(
+                {
+                    "source": nodes[node],
+                    "target": nodes[target_node],
+                    "relationship": relationship,
+                }
+            )
 
     return nodes, relationships
+
 
 def ingest_to_neo4j(nodes, relationships):
     """
@@ -119,9 +113,7 @@ def ingest_to_neo4j(nodes, relationships):
         # Create nodes in Neo4j
         for name, node_id in nodes.items():
             session.run(
-                "CREATE (n:Entity {id: $id, name: $name})",
-                id=node_id,
-                name=name
+                "CREATE (n:Entity {id: $id, name: $name})", id=node_id, name=name
             )
         # Create relationships in Neo4j
         for relationship in relationships:
@@ -132,10 +124,11 @@ def ingest_to_neo4j(nodes, relationships):
                 """,
                 source_id=relationship["source"],
                 target_id=relationship["target"],
-                relationship=relationship["relationship"]
+                relationship=relationship["relationship"],
             )
 
     return nodes
+
 
 def create_collection(client, collection_name, vector_dimension):
     """
@@ -145,28 +138,28 @@ def create_collection(client, collection_name, vector_dimension):
         collection_info = client.get_collection(collection_name=collection_name)
         print(f"Collection '{collection_name}' already exists.")
     except Exception as e:
-        if 'Not found: Collection' in str(e):
-            print(f"Collection '{collection_name}' does not exist. Creating new collection.")
+        if "Not found: Collection" in str(e):
+            print(
+                f"Collection '{collection_name}' does not exist. Creating new collection."
+            )
 
             client.create_collection(
                 collection_name=collection_name,
                 vectors_config=models.VectorParams(
-                    size=vector_dimension,
-                    distance=models.Distance.COSINE
-                )
+                    size=vector_dimension, distance=models.Distance.COSINE
+                ),
             )
 
             print(f"Collection '{collection_name}' created successfully.")
         else:
             print(f"An error occurred: {e}")
 
+
 def openai_embeddings(texts):
-    response = client.embeddings.create(
-        model="nomic-embed-text:latest", 
-        input=texts
-    )
-    
+    response = client.embeddings.create(model="nomic-embed-text:latest", input=texts)
+
     return response.data[0].embedding
+
 
 def ingest_to_qdrant(collection_name, raw_data, node_id_mapping):
     """
@@ -177,14 +170,11 @@ def ingest_to_qdrant(collection_name, raw_data, node_id_mapping):
     qdrant_client.upsert(
         collection_name=collection_name,
         points=[
-            {
-                "id": str(uuid.uuid4()),
-                "vector": embedding,
-                "payload": {"id": node_id}
-            }
+            {"id": str(uuid.uuid4()), "vector": embedding, "payload": {"id": node_id}}
             for node_id, embedding in zip(node_id_mapping.values(), embeddings)
-        ]
+        ],
     )
+
 
 def retriever_search(neo4j_driver, qdrant_client, collection_name, query):
     retriever = QdrantNeo4jRetriever(
@@ -192,11 +182,12 @@ def retriever_search(neo4j_driver, qdrant_client, collection_name, query):
         client=qdrant_client,
         collection_name=collection_name,
         id_property_external="id",
-        id_property_neo4j="id"
+        id_property_neo4j="id",
     )
 
     results = retriever.search(query_vector=openai_embeddings(query), top_k=5)
     return results
+
 
 def fetch_related_graph(neo4j_client, entity_ids):
     query = """
@@ -212,18 +203,23 @@ def fetch_related_graph(neo4j_client, entity_ids):
         result = session.run(query, entity_ids=entity_ids)
         subgraph = []
         for record in result:
-            subgraph.append({
-                "entity": record["e"],
-                "relationship": record["r"],
-                "related_node": record["related"],
-            })
+            subgraph.append(
+                {
+                    "entity": record["e"],
+                    "relationship": record["r"],
+                    "related_node": record["related"],
+                }
+            )
             if record["r2"] and record["n2"]:
-                subgraph.append({
-                    "entity": record["related"],
-                    "relationship": record["r2"],
-                    "related_node": record["n2"],
-                })
+                subgraph.append(
+                    {
+                        "entity": record["related"],
+                        "relationship": record["r2"],
+                        "related_node": record["n2"],
+                    }
+                )
     return subgraph
+
 
 def format_graph_context(subgraph):
     nodes = set()
@@ -240,6 +236,7 @@ def format_graph_context(subgraph):
         edges.append(f"{entity['name']} -[{relationship['type']}]-> {related['name']}")
 
     return {"nodes": list(nodes), "edges": edges}
+
 
 def graphRAG_run(graph_context, user_query):
     nodes_str = ", ".join(graph_context["nodes"])
@@ -262,38 +259,31 @@ def graphRAG_run(graph_context, user_query):
             messages=[
                 {
                     "role": "system",
-                    "content": "Provide the answer for the following question:"
+                    "content": "Provide the answer for the following question:",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
+                {"role": "user", "content": prompt},
+            ],
         )
         return response.choices[0].message
-    
+
     except Exception as e:
         return f"Error querying LLM: {str(e)}"
-    
+
+
 if __name__ == "__main__":
     print("Script started")
     print("Loading environment variables...")
-    load_dotenv('.env')
+    load_dotenv(".env")
     print("Environment variables loaded.")
 
     print("Initializing clients...")
-    neo4j_driver = GraphDatabase.driver(
-        neo4j_url,
-        auth=(neo4j_user, neo4j_password)   
-    )
-    qdrant_client = QdrantClient(
-        url=qdrant_url
-    )
+    neo4j_driver = GraphDatabase.driver(neo4j_url, auth=(neo4j_user, neo4j_password))
+    qdrant_client = QdrantClient(url=qdrant_url)
     print("Clients initialized.")
 
     print("Creating collection...")
     collection_name = "graphRAGstoreds"
-    vector_dimension = 768 # 768 for nomic-embed-text
+    vector_dimension = 768  # 768 for nomic-embed-text
     create_collection(qdrant_client, collection_name, vector_dimension)
     print("Collection created/verified.")
 
@@ -341,7 +331,9 @@ if __name__ == "__main__":
 
     query = "How is Bob connected to New York?"
     print("Starting retriever search...")
-    retriever_result = retriever_search(neo4j_driver, qdrant_client, collection_name, query)
+    retriever_result = retriever_search(
+        neo4j_driver, qdrant_client, collection_name, query
+    )
     print("Retriever results:", retriever_result)
 
     print("Extracting entity IDs...")
@@ -362,4 +354,3 @@ if __name__ == "__main__":
     print("Running GraphRAG...")
     answer = graphRAG_run(graph_context, query)
     print("Final Answer:", answer)
-    

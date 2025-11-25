@@ -40,15 +40,17 @@ with st.sidebar:
             st.warning("Please enter some text.")
             logger.warning("Ingestion attempt blocked: empty text input.")
         else:
-            logger.info(f"User requested ingestion of text (length: {len(raw_text)} characters).")
+            logger.info(
+                f"User requested ingestion of text (length: {len(raw_text)} characters)."
+            )
             with st.spinner("Extracting Entities & Relationships..."):
                 try:
                     result_msg = engine.ingest_text(raw_text)
                     st.success(result_msg)
                     logger.success("Data ingestion completed successfully.")
-                except Exception as e:
+                except Exception:
                     st.error("Ingestion failed. Check graphrag_app.log for details.")
-                    logger.error(f"Ingestion failed in Streamlit UI layer")
+                    logger.error("Ingestion failed in Streamlit UI layer")
 
 # --- Main Area: Chat Interface ---
 st.subheader("💬 Chat with your Graph")
@@ -92,4 +94,3 @@ if prompt := st.chat_input("Ask a question about the ingested data..."):
             except Exception:
                 st.error("Query failed. Check graphrag_app.log for details.")
                 logger.error("Query failed in Streamlit UI layer.")
-
