@@ -22,6 +22,7 @@ def get_engine():
     logger.info("GraphRAGEngine instance created successfully.")
     return engine
 
+engine = get_engine()
 
 st.title("🕸️ GraphRAG Explorer")
 st.markdown("Interact with your Neo4j + Qdrant Knowledge Graph.")
