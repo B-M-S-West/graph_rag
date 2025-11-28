@@ -3,10 +3,35 @@ from neo4j import GraphDatabase
 from qdrant_client import QdrantClient, models
 from pydantic import BaseModel
 from openai import OpenAI
-from neo4j_graphrag.retrievers import QdrantNeo4jRetriever
 from config import Config
 from loguru import logger
 
+# neo4j_graphrag is now missing dependcency, so we implement a simple retriever here
+class RetrieverResult:
+    """Mimics the expected output structure for the result objects."""
+    def __init__(self, content: str):
+        self.content = content
+
+class QdrantNeo4jRetriever:
+    """Minimal implementation based on the usage in GraphRAGEngine.query_graph."""
+    def __init__(self, driver, client, collection_name, id_property_external, id_property_neo4j):
+        self.driver = driver
+        self.client = client
+        self.collection_name = collection_name
+        self.id_property_external = id_property_external
+        self.id_property_neo4j = id_property_neo4j
+
+    def search(self, query_vector, top_k=5):
+        search_result = self.client.search(
+            collection_name=self.collection_name,
+            query_vector=query_vector,
+            limit=top_k,
+        )
+        results = []
+        for point in search_result:
+            content_str = f"{{'id': '{point.payload.get('id')}'}}"
+            results.append(RetrieverResult(content=content_str))
+        return results
 
 # Pydantic Models for Extraction
 class SingleRelationship(BaseModel):
