@@ -310,6 +310,13 @@ class GraphRAGEngine:
             logger.info("Fetching related graph from Neo4j.")
             subgraph = fetch_related_graph(self.neo4j_driver, entity_ids)
 
+            # Check for empty content
+            if not subgraph:
+                no_context_message = "I couldn't find relevant information in the graph to answer you question."
+                empty_context_str = "No relevant context found in the graph."
+                logger.info("No related graph context found. Returning early.")
+                return no_context_message, empty_context_str
+
             # 4. Generate Answer using context
             answer, context_str = self._generate_answer(query_text, subgraph)
             logger.info("Answer generation completed.")
