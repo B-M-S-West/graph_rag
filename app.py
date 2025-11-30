@@ -13,13 +13,16 @@ st.set_page_config(page_title="GraphRAG Explorer", layout="wide")
 @st.cache_resource
 def get_engine():
     # Cached to prevent reloading connections on every interaction
+    print("--- DEBUG: Starting engine initialization. ---")
     logger.info("Initializing GraphRAGEngine instance...")
     try:
         engine = GraphRAGEngine()
     except Exception as e:
         logger.error(f"Error initializing GraphRAGEngine: {e}")
+        print(f"--- FATAL ERROR: Engine initialization failed with: {e} ---")
         raise
     logger.info("GraphRAGEngine instance created successfully.")
+    print("--- DEBUG: Engine initialization completed. ---")
     return engine
 
 engine = get_engine()

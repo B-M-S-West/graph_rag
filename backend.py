@@ -81,15 +81,19 @@ class GraphRAGEngine:
         logger.info("Initializing GraphRAGEngine...")
         try:
             # Initialize Neo4j, Qdrant, and LLM clients
+            print("--- DEBUG: Initializing Neo4j driver... ---")
             self.neo4j_driver = GraphDatabase.driver(
                 Config.NEO4J_URI, auth=(Config.NEO4J_USER, Config.NEO4J_PASSWORD)
             )
+            print("--- DEBUG: Initializing Qdrant client... ---")
             self.qdrant_client = QdrantClient(url=Config.QDRANT_URL)
+            print("--- DEBUG: Initializing Ollama/OpenAI client... ---")
             self.llm_client = OpenAI(
                 base_url=Config.OLLAMA_BASE_URL, api_key=Config.OLLAMA_API_KEY
             )
 
             # Ensure Vector Collection Exists
+            print("--- DEBUG: Checking Qdrant collection... ---")
             self._create_collection_if_not_exists()
             logger.info("GraphRAGEngine initialized successfully.")
         except Exception as e:
