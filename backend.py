@@ -243,12 +243,10 @@ class GraphRAGEngine:
 
     # Extracted function from original query_graph to manage final generation and logging
     def _generate_answer(self, user_query, subgraph):
-        # Format graph context
+        # SETS to avoid duplicate nodes/edges
         nodes_set = set()
-        edges_list = []
-        # ... (subgraph formatting logic as per original fetch_related_graph logic)
+        edges_set = set()
 
-        # Note: The original provided script had this logic in the main function:
         for entry in subgraph:
             entity = entry["entity"]
             related = entry["related_node"]
@@ -259,9 +257,9 @@ class GraphRAGEngine:
 
             # Use .get() for robustness in case 'type' key is missing
             r_type = relationship.get("type", "RELATES_TO")
-            edges_list.append(f"{entity['name']} -[{r_type}]-> {related['name']}")
+            edges_set.add(f"{entity['name']} -[{r_type}]-> {related['name']}")
 
-        context_str = f"Nodes: {', '.join(nodes_set)}\nEdges: {'; '.join(edges_list)}"
+        context_str = f"Nodes: {', '.join(nodes_set)}\nEdges: {'; '.join(edges_set)}"
         logger.debug(f"Graph context generated: {context_str}")  # ADDED LOG
 
         prompt = f"""
