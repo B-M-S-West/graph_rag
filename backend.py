@@ -22,14 +22,15 @@ class QdrantNeo4jRetriever:
         self.id_property_neo4j = id_property_neo4j
 
     def search(self, query_vector, top_k=5):
-        search_result = self.client.search(
+        response = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
         )
         results = []
-        for point in search_result:
-            content_str = f"{{'id': '{point.payload.get('id')}'}}"
+        for point in response.points:
+            payload = point.payload or {}
+            content_str = f"{{'id': '{payload.get('id')}'}}"
             results.append(RetrieverResult(content=content_str))
         return results
 
